@@ -1,0 +1,103 @@
+
+
+services:
+  # ── MongoDB ───────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: selfheal-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=selfheal
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Backend (Node.js) ────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: selfheal-backend
+    ports:
+      - "3001:3001"
+      - "9090:9090" # Prometheus metrics
+    environment:
+      - PORT=3001
+      - MONGO_URI=mongodb://mongodb:27017/selfheal
+      - AI_HOST=ai-service
+      - AI_PORT=5000
+      - NODE_ENV=production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3001/api/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── AI Service (Python) ──────────────────────────────────
+  ai-service:
+    build:
+      context: ./ai_service
+      dockerfile: Dockerfile
+    container_name: selfheal-ai
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./ai_service/model:/app/model # mount trained model
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ── Frontend (React) ─────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: selfheal-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:3001
+    depends_on:
+      - backend
+
+  # ── Demo Website (Target System) ──────────────────────────
+  demo-website:
+    build:
+      context: .
+      dockerfile: demo_website.Dockerfile
+    container_name: selfheal-demo-site
+    ports:
+      - "4000:4000"
+    environment:
+      - BACKEND_URL=http://backend:3001
+    depends_on:
+      - backend
+
+  # ── Prometheus ───────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: selfheal-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/etc/prometheus/console_libs
+      - --web.console.templates=/etc/prometheus/console
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

@@ -1,0 +1,27 @@
+{
+  "name": "self-heal-backend",
+  "version": "1.0.0",
+  "description": "Self-Healing Software Backend — Telemetry, Prediction Proxy, Patch Engine",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "node scripts/test_backend.js",
+    "seed": "node scripts/seed_data.js"
+  },
+  "dependencies": {
+    "@opentelemetry/sdk-trace-base": "^2.5.0",
+    "axios": "^1.13.5",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.2.1",
+    "mongodb": "^7.1.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

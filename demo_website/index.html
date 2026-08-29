@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title> Self-Healing Demo</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #38bdf8;
+            --bg: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --border: rgba(51, 65, 85, 0.5);
+            --terminal: rgba(2, 6, 23, 0.8);
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top right, #1e293b, #0f172a);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding-top: 40px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            width: 95%;
+            max-width: 900px;
+            z-index: 10;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2rem;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        p {
+            color: #94a3b8;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        .status-badge {
+            margin-top: 5px;
+            font-weight: 700;
+            padding: 8px 20px;
+            border-radius: 50px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .healthy {
+            background: rgba(6, 78, 59, 0.3);
+            color: #34d399;
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+
+        .patched {
+            background: rgba(30, 58, 138, 0.3);
+            color: #60a5fa;
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .crashing {
+            background: rgba(127, 29, 29, 0.3);
+            color: #f87171;
+            border: 1px solid rgba(248, 113, 113, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+            }
+
+            70% {
+                transform: scale(1.02);
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .chart-container {
+            margin-top: 25px;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 15px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            height: 200px;
+        }
+
+        .controls {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .crash-btn {
+            color: white;
+            border: none;
+            padding: 10px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.7rem;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .crash-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            filter: brightness(1.2);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .crash-btn:active {
+            transform: translateY(0);
+        }
+
+        .crash-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        #terminal {
+            width: 90%;
+            max-width: 600px;
+            background: var(--terminal);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            height: 150px;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+            margin-bottom: 40px;
+        }
+
+        #terminal::before {
+            content: "SYSTEM_KERNEL_LOGS";
+            position: absolute;
+            top: 5px;
+            right: 15px;
+            font-size: 0.6rem;
+            opacity: 0.5;
+            letter-spacing: 1px;
+        }
+
+        .log {
+            margin-bottom: 4px;
+            border-left: 2px solid transparent;
+            padding-left: 8px;
+        }
+
+        .log.info {
+            color: #38bdf8;
+        }
+
+        .log.warn {
+            color: #f59e0b;
+        }
+
+        .log.error {
+            color: #ef4444;
+            border-left-color: #ef4444;
+        }
+
+        .log.success {
+            color: #10b981;
+        }
+
+        .log.time {
+            color: #475569;
+            margin-right: 8px;
+        }
+
+        #notification-center {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--border);
+            padding: 14px;
+            border-radius: 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s ease-out;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        .toast.info {
+            border-left: 4px solid var(--primary);
+        }
+
+        .toast-content h4 {
+            margin: 0;
+            font-size: 0.85rem;
+        }
+
+        .toast-content p {
+            margin: 4px 0 0;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scanline"></div>
+    <div id="notification-center"></div>
+
+    <div class="glass-card">
+        <h1>WebGuard Demo</h1>
+        <p>Dynamic Self-Healing Infrastructure</p>
+
+        <div id="status" class="status-badge healthy">
+            <span>●</span> STATUS: PROTECTED
+        </div>
+
+
+        <div id="rca-insight" class="status-badge"
+            style="background: rgba(30, 41, 59, 0.5); color: #94a3b8; border: 1px solid var(--border); margin-top: 10px; display: none; width: 100%; justify-content: center;">
+            <span style="color: #38bdf8;">🧠</span> RCA: <span id="rca-target"
+                style="margin-left: 5px; font-weight: 800; color: white;">IDLE</span>
+        </div>
+
+        <div class="layout-main"
+            style="display: grid; grid-template-columns: 1fr 400px; gap: 30px; margin-top: 30px; text-align: left; align-items: start;">
+            <!-- LEFT COLUMN: Graph and Buttons -->
+            <div class="column-left" style="display: flex; flex-direction: column; gap: 24px;">
+                <!-- Telemetry Graph -->
+                <div>
+                    <p
+                        style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; opacity: 0.7;">
+                        Live Telemetry (Latency ms)
+                    </p>
+                    <div class="chart-container"
+                        style="margin-top: 0; height: 300px; background: rgba(15, 23, 42, 0.4);">
+                        <canvas id="telemetryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Control Grid -->
+                <div>
+                    <p
+                        style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; opacity: 0.7;">
+                        Root Cause Triage (9 Nodes)
+                    </p>
+                    <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 25px;"
+                        id="service-grid">
+                        <!-- Buttons will be injected here -->
+                    </div>
+
+                    <p
+                        style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; opacity: 0.7;">
+                        Global Stress Injection
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        <button onclick="triggerCrash('LATENCY_DEGRADATION')" class="crash-btn"
+                            style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); padding: 15px 5px;">
+                            <span>🐢</span> NETWORK
+                        </button>
+                        <button onclick="triggerCrash('MEMORY_LEAK')" class="crash-btn"
+                            style="background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.4); padding: 15px 5px;">
+                            <span>💧</span> MEMORY
+                        </button>
+                        <button onclick="triggerCrash('CPU_SPIKE')" class="crash-btn"
+                            style="background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); padding: 15px 5px;">
+                            <span>🔥</span> CPU SPIKE
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Terminal Logs -->
+            <div class="column-right" style="display: flex; flex-direction: column; height: 100%;">
+                <p
+                    style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; opacity: 0.7;">
+                    System Kernel Logs
+                </p>
+                <div id="terminal"
+                    style="width: 100%; max-width: none; flex-grow: 1; height: 550px; font-size: 0.7rem; margin-bottom: 0; background: var(--terminal); border: 1px solid var(--border); border-radius: 12px; padding: 15px; overflow-y: auto;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const terminal = document.getElementById('terminal');
+        const ctx = document.getElementById('telemetryChart').getContext('2d');
+
+        // Initialize Chart
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(20).fill(''),
+                datasets: [{
+                    label: 'Latency (ms)',
+                    data: Array(20).fill(0),
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { display: false },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#64748b', font: { size: 10 } }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                },
+                animation: { duration: 400 }
+            }
+        });
+
+        function log(msg, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log ${type}`;
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 2 });
+            entry.innerHTML = `<span class="log time">[${time}]</span> ${msg}`;
+            terminal.appendChild(entry);
+            terminal.scrollTop = terminal.scrollHeight;
+            if (terminal.childNodes.length > 50) terminal.removeChild(terminal.firstChild);
+        }
+
+        function showToast(title, message, type = 'info') {
+            const center = document.getElementById('notification-center');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <div class="toast-content">
+                    <h4>${title}</h4>
+                    <p>${message}</p>
+                </div>
+            `;
+            center.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(20px)';
+                setTimeout(() => toast.remove(), 400);
+            }, 6000);
+        }
+
+        const SERVICES = [
+            'auth-service', 'api-gateway', 'order-service',
+            'inventory-service', 'notification-service', 'user-service', 'audit-service',
+            'database-layer', 'cache-layer'
+        ];
+
+        function initServiceGrid() {
+            const grid = document.getElementById('service-grid');
+            SERVICES.forEach(s => {
+                const btn = document.createElement('button');
+                btn.className = 'crash-btn';
+                btn.style.background = 'rgba(239, 68, 68, 0.1)';
+                btn.style.border = '1px solid rgba(239, 68, 68, 0.2)';
+                btn.style.fontSize = '0.6rem';
+                btn.innerHTML = `<span>💥</span> ${s.split('-')[0].toUpperCase()}`;
+                btn.onclick = () => triggerCrash('SERVICE_CRASH', s);
+                grid.appendChild(btn);
+            });
+        }
+        initServiceGrid();
+        let isProcessingFault = false;
+
+        async function triggerCrash(type, target = null) {
+            if (isProcessingFault) return;
+            isProcessingFault = true;
+
+            const btns = document.querySelectorAll('.crash-btn');
+            btns.forEach(b => b.disabled = true);
+
+            log(`CRITICAL: SYSTEM_CRASH_INITIATED [${type}${target ? ' ON ' + target : ''}]`, 'error');
+            showToast("SIMULATION STARTED", `Injecting fault into ${target || 'global cluster'}...`, 'warning');
+
+            try {
+                const response = await fetch('http://localhost:3001/api/telemetry/inject', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: type, targetModule: target })
+                });
+
+                if (response.ok) {
+                    log(`INJECTION_PHASE: Stress level increasing in cluster...`, 'warn');
+                }
+            } catch (e) {
+                log(`FE_FATAL: CONNECTION TO BACKEND FAILED`, 'error');
+                isProcessingFault = false;
+                btns.forEach(b => b.disabled = false);
+            }
+        }
+
+        let lastStatus = null;
+        let lastFault = null;
+
+        const STAGE_NAMES = [
+            "TELEMETRY", "PREPROCESS", "FUSION", "GRAPH_GEN", "TRANSFORMER",
+            "SCORING", "CAUSAL_RCA", "PATCH_GEN", "TWIN_VAL", "INJECTION"
+        ];
+
+
+
+        async function checkHealth() {
+            try {
+                const start = performance.now();
+                const res = await fetch('http://localhost:3001/api/telemetry/snapshot', { cache: 'no-store' });
+                const lat = Math.round(performance.now() - start);
+
+                // Update Chart
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[0].data.push(lat);
+                chart.update();
+
+                // Fetch RCA data
+                const rcaRes = await fetch('http://localhost:3001/api/telemetry/rca');
+                const rcaData = await rcaRes.json();
+
+
+
+                // Get active fault from backend for "Proof"
+                const faultRes = await fetch('http://localhost:3001/api/telemetry/active-fault');
+                const { activeFault } = await faultRes.json();
+
+                if (activeFault && activeFault !== lastFault) {
+                    log(`CRITICAL: ${activeFault} detected in telemetry stream`, 'error');
+                    lastFault = activeFault;
+                    chart.data.datasets[0].borderColor = '#ef4444';
+                    chart.data.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                }
+
+                const isPatched =
+                    res.headers.get('X-Patched-LoadBalancer') ||
+                    res.headers.get('X-Patched-Timeout') ||
+                    res.headers.get('X-Patch-Applied');
+
+                const statusEl = document.getElementById('status');
+
+                if (activeFault) {
+                    isProcessingFault = true;
+                    statusEl.innerHTML = `<span>●</span> STATUS: CRASHED (${activeFault.split('_')[0]})`;
+                    statusEl.className = "status-badge crashing";
+
+                    if (lastStatus !== 'crashing') {
+                        log(`CRITICAL: SYSTEM_CRASH_DETECTED [${activeFault}]`, 'error');
+                        lastStatus = 'crashing';
+                        lastFault = activeFault;
+                    }
+
+                    if (rcaData.rootCause && rcaData.rootCause !== 'none') {
+                        document.getElementById('rca-insight').style.display = 'flex';
+                        document.getElementById('rca-target').innerText = rcaData.rootCause.toUpperCase();
+                        if (lastFault !== rcaData.rootCause) {
+                            log(`RCA_RESULT: Identified ${rcaData.rootCause} as primary causal factor`, 'warn');
+                            lastFault = rcaData.rootCause;
+                        }
+                    }
+
+                    document.querySelectorAll('.crash-btn').forEach(b => b.disabled = true);
+                } else if (isPatched) {
+                    if (lastStatus !== 'patched') {
+                        const target = lastFault ? lastFault : 'SYSTEM';
+                        log(`RECOVERY_PROTOCOL: Module ${target} restored via neural patch`, 'success');
+                        log(`SYSTEM_STATE: Healing complete. Root cause resolved.`, 'info');
+                        showToast("SYSTEM RECOVERED", "AI Agent successfully applied a hot-patch.", 'info');
+                        lastStatus = 'patched';
+                        lastFault = null;
+                        chart.data.datasets[0].borderColor = '#60a5fa';
+                        chart.data.datasets[0].backgroundColor = 'rgba(96, 165, 250, 0.1)';
+                    }
+                    statusEl.innerHTML = "<span>●</span> STATUS: AUTO-PATCHED";
+                    statusEl.className = "status-badge patched";
+                    document.getElementById('rca-insight').style.display = 'none';
+                    // Stay disabled during patch phase to ensure final restoration is seen
+                    document.querySelectorAll('.crash-btn').forEach(b => b.disabled = true);
+                } else {
+                    document.getElementById('rca-insight').style.display = 'none';
+                    if (lastStatus === 'patched' || lastStatus === 'crashing') {
+                        log(`SYSTEM_STATE: PROTECTED (All systems nominal)`, 'success');
+                        chart.data.datasets[0].borderColor = '#38bdf8';
+                        chart.data.datasets[0].backgroundColor = 'rgba(56, 189, 248, 0.1)';
+                        
+                        // Only unlock UI when we've transitioned from a fault state back to healthy
+                        isProcessingFault = false;
+                        document.querySelectorAll('.crash-btn').forEach(b => b.disabled = false);
+                    }
+                    statusEl.innerHTML = "<span>●</span> STATUS: PROTECTED";
+                    statusEl.className = "status-badge healthy";
+                    lastStatus = 'healthy';
+                    lastFault = null;
+                }
+
+                if (lat > 500) log(`PERF_WARNING: High latency detected (${lat}ms)`, 'warn');
+
+            } catch (e) {
+                log(`HB_LOST: Monitoring stream interrupted`, 'error');
+            }
+        }
+
+
+
+        log(`WEBSITE_AGENT initialized. Watching for anomalies...`, 'info');
+        setInterval(checkHealth, 5000);
+        checkHealth(); // Initial check
+    </script>
+</body>
+
+</html>
