@@ -10,6 +10,12 @@ const PORT = 4000;
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
 
 app.use(cors());
+app.use((req, res, next) => {
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Security-Policy', "frame-ancestors *");
+    next();
+});
 app.use(express.static(path.join(__dirname, '../demo_website')));
 
 // Simulation state (fetched from backend)

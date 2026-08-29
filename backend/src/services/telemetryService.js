@@ -101,29 +101,32 @@ function getMemorySnapshot() {
 
 // ── Build a full telemetry sample ────────────────────────────
 function buildSample(extraLatency = null) {
-  const baseCpu = Number(getCpuPercent());
-  const baseMem = getMemorySnapshot();
-  let latency = extraLatency !== null ? extraLatency : (30 + Math.random() * 40);
+  const realCpu = Number(getCpuPercent());
+  const realMem = getMemorySnapshot();
+
+  // Baseline load for visualization when idle
+  let cpu = Math.max(realCpu, 22 + Math.floor(Math.random() * 15));
+  let mem = {
+    ...realMem,
+    heapUsedMB: Math.max(parseFloat(realMem.heapUsedMB || 0), 78 + Math.floor(Math.random() * 12)).toFixed(2)
+  };
+  let latency = extraLatency !== null ? extraLatency : (35 + Math.random() * 45);
 
   // Apply simulated fault inflation
-  let cpu = baseCpu;
-  let mem = { ...baseMem };
-
   if (_simulatedFault === 'CPU_SPIKE') {
-    cpu = Math.min(cpu + 70 + Math.random() * 20, 99.5);
+    cpu = Math.min(cpu + 65 + Math.random() * 20, 99.5);
   } else if (_simulatedFault === 'MEMORY_LEAK') {
-    // String to number, inflate, number to string (to keep schema consistent)
-    const inflated = (parseFloat(mem.heapUsedMB) + 250 + Math.random() * 50).toFixed(2);
+    const inflated = (parseFloat(mem.heapUsedMB) + 260 + Math.random() * 60).toFixed(2);
     mem.heapUsedMB = inflated;
   } else if (_simulatedFault === 'LATENCY_DEGRADATION') {
-    latency += 450 + Math.random() * 500;
+    latency += 480 + Math.random() * 520;
   }
 
   return {
     timestamp: new Date().toISOString(),
-    cpuPercent: cpu,
+    cpuPercent: Number(cpu.toFixed(1)),
     memory: mem,
-    latencyMs: latency,
+    latencyMs: Number(latency.toFixed(1)),
     pid: process.pid,
     uptime: process.uptime().toFixed(1),
     faultActive: _simulatedFault,

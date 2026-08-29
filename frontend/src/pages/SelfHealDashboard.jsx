@@ -528,15 +528,57 @@ export default function SelfHealDashboard() {
 
           {activeTab === 'target' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right-5 duration-700">
-              <Card title="Live Target WebGuard System" subtitle="Embedded Target Website & Chaos Injection Controller" icon="🌐">
-                <div className="w-full h-[700px] rounded-xl overflow-hidden border border-slate-700/50 shadow-2xl bg-slate-900">
-                  <iframe
-                    src="http://localhost:4000"
-                    title="Live WebGuard Target Site"
-                    className="w-full h-full border-0"
-                  />
+              <div className="grid grid-cols-12 gap-8">
+                <div className="col-span-12">
+                  <Card
+                    title="Live Target WebGuard System"
+                    subtitle="Autonomous Hot-Patching & Fault Injection Console"
+                    icon="🌐"
+                    action={
+                      <a
+                        href="http://localhost:4000"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 text-[10px] font-black rounded-xl border border-sky-500/40 uppercase tracking-widest transition-all"
+                      >
+                        ↗ Open Target Site (Port 4000)
+                      </a>
+                    }
+                  >
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-3 gap-4">
+                        <button
+                          onClick={() => fetch(`${API_BASE}/telemetry/inject`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ type: 'LATENCY_DEGRADATION' }) })}
+                          className="p-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-xl text-rose-400 text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                        >
+                          <span>🐢</span> Inject Latency Spike
+                        </button>
+                        <button
+                          onClick={() => fetch(`${API_BASE}/telemetry/inject`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ type: 'MEMORY_LEAK' }) })}
+                          className="p-4 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-xl text-purple-400 text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                        >
+                          <span>💧</span> Inject Memory Leak
+                        </button>
+                        <button
+                          onClick={() => fetch(`${API_BASE}/telemetry/inject`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ type: 'CPU_SPIKE' }) })}
+                          className="p-4 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-400 text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                        >
+                          <span>🔥</span> Inject CPU Saturation
+                        </button>
+                      </div>
+
+                      <div className="w-full h-[650px] rounded-xl overflow-hidden border border-slate-700/50 shadow-2xl bg-slate-900 relative">
+                        <iframe
+                          src="http://localhost:4000"
+                          title="Live WebGuard Target Site"
+                          className="w-full h-full border-0"
+                          allow="geolocation; microphone; camera; midi; encrypted-media;"
+                        />
+                      </div>
+                    </div>
+                  </Card>
                 </div>
-              </Card>
+              </div>
             </div>
           )}
         </div>
